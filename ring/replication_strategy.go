@@ -34,7 +34,7 @@ func (s *defaultReplicationStrategy) Filter(instances []InstanceDesc, op Operati
 	}
 
 	minSuccess := (replicationFactor / 2) + 1
-	if replicationFactor == 2 {
+	if checkZoneNum(instances) <= 2 {
 		minSuccess = 1
 	}
 
@@ -72,6 +72,16 @@ func (s *defaultReplicationStrategy) Filter(instances []InstanceDesc, op Operati
 	}
 
 	return instances, len(instances) - minSuccess, nil
+}
+
+func checkZoneNum(instances []InstanceDesc) int {
+	var zoneMap = make(map[string]bool)
+	for _, instance := range instances {
+		if instance.Zone != "" {
+			zoneMap[instance.Zone] = true
+		}
+	}
+	return len(zoneMap)
 }
 
 type ignoreUnhealthyInstancesReplicationStrategy struct{}

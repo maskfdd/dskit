@@ -293,6 +293,7 @@ func (r *Ring) loop(ctx context.Context) error {
 		r.updateRingState(value.(*Desc))
 		return true
 	})
+
 	return nil
 }
 
@@ -362,6 +363,9 @@ func (r *Ring) Get(key uint32, op Operation, bufDescs []InstanceDesc, bufHosts, 
 	if r.ringDesc == nil || len(r.ringTokens) == 0 {
 		return ReplicationSet{}, ErrEmptyRing
 	}
+
+	// Automatically determine the number of availability zones
+	r.cfg.ZoneAwarenessEnabled = r.checkZoneAwareness()
 
 	instances, err := r.findInstancesForKey(key, op, bufDescs, bufHosts, bufZones, nil)
 	if err != nil {
@@ -472,6 +476,7 @@ func (r *Ring) GetAllHealthy(op Operation) (ReplicationSet, error) {
 
 // GetReplicationSetForOperation implements ReadRing.
 func (r *Ring) GetReplicationSetForOperation(op Operation) (ReplicationSet, error) {
+	r.cfg.ZoneAwarenessEnabled = r.checkZoneAwareness()
 	r.mtx.RLock()
 	defer r.mtx.RUnlock()
 
@@ -697,6 +702,7 @@ func (r *Ring) ShuffleShardWithLookback(identifier string, size int, lookbackPer
 }
 
 func (r *Ring) shuffleShard(identifier string, size int, lookbackPeriod time.Duration, now time.Time) *Ring {
+	r.cfg.ZoneAwarenessEnabled = r.checkZoneAwareness()
 	lookbackUntil := now.Add(-lookbackPeriod).Unix()
 
 	r.mtx.RLock()
@@ -1133,4 +1139,8 @@ func (r *Ring) numberOfKeysOwnedByInstance(keys []uint32, op Operation, instance
 		}
 	}
 	return owned, nil
+}
+
+func (r *Ring) checkZoneAwareness() bool {
+	return len(r.ringTokensByZone) > 1
 }
