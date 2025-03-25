@@ -78,6 +78,8 @@ type Config struct {
 	// for details. A generally useful value is 1.1.
 	MetricsNativeHistogramFactor float64 `yaml:"-"`
 
+	PprofEnabled bool `yaml:"pprof_enabled"`
+
 	HTTPListenNetwork string `yaml:"http_listen_network"`
 	HTTPListenAddress string `yaml:"http_listen_address"`
 	HTTPListenPort    int    `yaml:"http_listen_port"`
@@ -152,6 +154,7 @@ var infinty = time.Duration(math.MaxInt64)
 
 // RegisterFlags adds the flags required to config this to the given FlagSet
 func (cfg *Config) RegisterFlags(f *flag.FlagSet) {
+	f.BoolVar(&cfg.PprofEnabled, "server.pprof-enabled", false, "Enable pprof endpoints.")
 	f.StringVar(&cfg.HTTPListenAddress, "server.http-listen-address", "", "HTTP server listen address.")
 	f.StringVar(&cfg.HTTPListenNetwork, "server.http-listen-network", DefaultNetwork, "HTTP server listen network, default tcp")
 	f.StringVar(&cfg.CipherSuites, "server.tls-cipher-suites", "", "Comma-separated list of cipher suites to use. If blank, the default Go cipher suites is used.")
@@ -432,7 +435,7 @@ func newServer(cfg Config, metrics *Metrics) (*Server, error) {
 		router = router.PathPrefix(cfg.PathPrefix).Subrouter()
 	}
 	if cfg.RegisterInstrumentation {
-		RegisterInstrumentationWithGatherer(router, gatherer)
+		RegisterInstrumentationWithGatherer(router, gatherer, cfg.PprofEnabled)
 	}
 
 	sourceIPs, err := middleware.NewSourceIPs(cfg.LogSourceIPsHeader, cfg.LogSourceIPsRegex)
@@ -506,15 +509,17 @@ func newServer(cfg Config, metrics *Metrics) (*Server, error) {
 
 // RegisterInstrumentation on the given router.
 func RegisterInstrumentation(router *mux.Router) {
-	RegisterInstrumentationWithGatherer(router, prometheus.DefaultGatherer)
+	RegisterInstrumentationWithGatherer(router, prometheus.DefaultGatherer, false)
 }
 
 // RegisterInstrumentationWithGatherer on the given router.
-func RegisterInstrumentationWithGatherer(router *mux.Router, gatherer prometheus.Gatherer) {
+func RegisterInstrumentationWithGatherer(router *mux.Router, gatherer prometheus.Gatherer, enablePprof bool) {
 	router.Handle("/metrics", promhttp.HandlerFor(gatherer, promhttp.HandlerOpts{
 		EnableOpenMetrics: true,
 	}))
-	router.PathPrefix("/debug/pprof").Handler(http.DefaultServeMux)
+	if enablePprof {
+		router.PathPrefix("/debug/pprof").Handler(http.DefaultServeMux)
+	}
 }
 
 // Run the server; blocks until SIGTERM (if signal handling is enabled), an error is received, or Stop() is called.
