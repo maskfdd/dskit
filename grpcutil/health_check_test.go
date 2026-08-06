@@ -209,9 +209,8 @@ func (s *mockService) State() services.State {
 	return s.state
 }
 
-func (s *mockService) AddListener(listener services.Listener) func() {
+func (s *mockService) AddListener(listener services.Listener) {
 	s.listeners = append(s.listeners, listener)
-	return func() {}
 }
 
 func (s *mockService) StartAsync(_ context.Context) error      { return nil }

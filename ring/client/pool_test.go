@@ -16,6 +16,8 @@ import (
 	"github.com/grafana/dskit/services"
 )
 
+var _ grpc_health_v1.HealthClient = (*mockClient)(nil)
+
 type mockClient struct {
 	happy  bool
 	status grpc_health_v1.HealthCheckResponse_ServingStatus
@@ -26,6 +28,13 @@ func (i mockClient) Check(_ context.Context, _ *grpc_health_v1.HealthCheckReques
 		return nil, fmt.Errorf("Fail")
 	}
 	return &grpc_health_v1.HealthCheckResponse{Status: i.status}, nil
+}
+
+func (i mockClient) List(_ context.Context, _ *grpc_health_v1.HealthListRequest, _ ...grpc.CallOption) (*grpc_health_v1.HealthListResponse, error) {
+	if !i.happy {
+		return nil, fmt.Errorf("Fail")
+	}
+	return &grpc_health_v1.HealthListResponse{}, nil
 }
 
 func (i mockClient) Close() error {
