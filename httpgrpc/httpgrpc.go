@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 
 	"github.com/go-kit/log/level"
 	spb "github.com/gogo/googleapis/google/rpc"
@@ -57,7 +58,16 @@ func FromHTTPRequest(r *http.Request) (*HTTPRequest, error) {
 }
 
 // ToHTTPRequest converts httpgrpc.HTTPRequest to http.Request.
+// 仅允许相对路径 URL，拒绝包含 scheme 或 host 的绝对 URL 以防止 SSRF 攻击。
 func ToHTTPRequest(ctx context.Context, r *HTTPRequest) (*http.Request, error) {
+	u, err := url.Parse(r.Url)
+	if err != nil {
+		return nil, fmt.Errorf("invalid URL in httpgrpc request: %w", err)
+	}
+	if u.Scheme != "" || u.Host != "" {
+		return nil, fmt.Errorf("absolute URL is not allowed in httpgrpc request, got: %s", r.Url)
+	}
+
 	req, err := http.NewRequest(r.Method, r.Url, nopCloser{Buffer: bytes.NewBuffer(r.Body)})
 	if err != nil {
 		return nil, err
